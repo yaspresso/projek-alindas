@@ -1,9 +1,13 @@
 // Variabel Global
 let currentMatrix = [];
-let minorMatrixValues = [];
-let cofactorMatrixValues = [];
 let determinantResult = 0;
-let currentStep = 0;
+let currentStep = 0; // Mengontrol langkah pembelajaran utama
+let matrixSize = 3; // Default matrix size
+let selectedMethod = 'auto'; // Default method (auto, sarrus, cofactor)
+
+// Log untuk menyimpan setiap langkah perhitungan determinan untuk ditampilkan
+let calculationStepsLog = [];
+let currentLogStep = 0; // Mengontrol langkah detail di dalam log
 
 // Elemen-elemen HTML
 const startButton = document.getElementById('startButton');
@@ -13,297 +17,90 @@ const explanationSection = document.getElementById('explanationSection');
 const explanationArea = document.getElementById('explanationArea');
 const prevStepButton = document.getElementById('prevStepButton');
 const nextStepButton = document.getElementById('nextStepButton');
-const matrixInputs = document.querySelectorAll('#matrixInputGrid input');
+const matrixOrderSelect = document.getElementById('matrixOrderSelect');
+const methodSelect = document.getElementById('methodSelect');
+const matrixInputGrid = document.getElementById('matrixInputGrid');
 
-// Definisi langkah-langkah pembelajaran
+// --- Definisi Langkah-langkah Pembelajaran Utama ---
 const learningSteps = [
     {
         name: "Intro",
         display: () => {
             explanationArea.innerHTML = `
-                <p>Klik "Mulai Pembelajaran" untuk melihat langkah pertama atau masukkan angka matriks Anda sendiri.</p>
+                <p>Pilih ordo matriks dan metode perhitungan, masukkan angka-angka, lalu klik "Mulai Pembelajaran" untuk memulai.</p>
+                <p><strong>Catatan:</strong> Metode Sarrus hanya berlaku untuk matriks 3x3. Untuk ordo lainnya, hanya Ekspansi Kofaktor yang tersedia.</p>
             `;
             prevStepButton.disabled = true;
             nextStepButton.disabled = true;
+            removeSarrusArrows();
+            removeHighlight();
         }
     },
     {
-        name: "Pengantar Determinan",
+        name: "Ringkasan Perhitungan",
         display: () => {
-            const matrixHTMLString = displayMatrixHTML(currentMatrix);
+            const currentSelectedOrder = parseInt(matrixOrderSelect.value);
+            const currentSelectedMethod = methodSelect.value;
+            let methodDescription = '';
+            let matrixType = '';
+
+            if (currentSelectedMethod === 'sarrus') {
+                methodDescription = 'Metode Sarrus (khusus 3x3).';
+            } else if (currentSelectedMethod === 'cofactor') {
+                methodDescription = 'Metode Ekspansi Kofaktor.';
+            } else { // auto
+                if (currentSelectedOrder === 3) {
+                    methodDescription = 'Metode Otomatis (Sarrus karena ordo 3x3).';
+                } else {
+                    methodDescription = 'Metode Otomatis (Ekspansi Kofaktor karena ordo >3x3).';
+                }
+            }
+
+            // Hitung dan log semua langkah sebelum menampilkan ringkasan
+            calculationStepsLog = []; // Reset log
+            determinantResult = determinant(currentMatrix, true, currentSelectedMethod); // True untuk logging
+
+            if (currentSelectedOrder === 3 && (currentSelectedMethod === 'sarrus' || currentSelectedMethod === 'auto')) {
+                 matrixType = `Matriks ${currentSelectedOrder}x${currentSelectedOrder} ini akan dihitung determinannya menggunakan ${methodDescription}`;
+            } else {
+                 matrixType = `Matriks ${currentSelectedOrder}x${currentSelectedOrder} ini akan dihitung determinannya menggunakan ${methodDescription}`;
+            }
+
+            const matrixHTMLString = displayMatrixHTML(currentMatrix, currentSelectedOrder);
+
             explanationArea.innerHTML = `
                 <div class="explanation-step">
-                    <h4>Langkah 1: Memahami Determinan Matriks Ordo 3x3</h4>
-                    <p><strong>Determinan</strong> adalah nilai skalar yang dapat dihitung dari elemen-elemen suatu matriks persegi. Untuk matriks 3x3, kita akan menggunakan <strong>Metode Sarrus</strong>. Ini adalah matriks yang akan kita hitung determinannya:</p>
+                    <h4>Ringkasan Perhitungan</h4>
+                    <p>Anda telah memilih matriks ordo <strong>${currentSelectedOrder}x${currentSelectedOrder}</strong> dan ${methodDescription}</p>
+                    <p>${matrixType}:</p>
                     <div class="matrix-output-display" id="currentMatrixDisplayContainer">
                         <div class="matrix-bracket left"></div>
-                        <div class="output-grid" id="currentMatrixDisplay">${matrixHTMLString}</div>
+                        <div class="output-grid order-${currentSelectedOrder}" id="currentMatrixDisplay">${matrixHTMLString}</div>
                         <div class="matrix-bracket right"></div>
                     </div>
-                    <p>Metode Sarrus akan membantu kita menemukan nilai ini dengan cara yang sistematis.</p>
+                    <p>Determinan akhirnya adalah: <strong>${determinantResult}</strong></p>
+                    <p>Klik 'Langkah Selanjutnya' untuk melihat detail perhitungan secara bertahap.</p>
                 </div>
             `;
-            prevStepButton.disabled = true;
-            nextStepButton.disabled = false;
+            currentLogStep = 0; // Reset log step untuk mulai dari awal detailnya
+            prevStepButton.disabled = false;
+            nextStepButton.disabled = (calculationStepsLog.length === 0);
             removeSarrusArrows();
+            removeHighlight();
         }
     },
     {
-        name: "Matriks Diperluas",
+        name: "Detail Perhitungan Langkah demi Langkah",
         display: () => {
-            const extendedMatrixData = getExtendedMatrixData(currentMatrix);
-            const extendedMatrixHTMLString = displayMatrixHTML(extendedMatrixData, '', true);
-            explanationArea.innerHTML = `
-                <div class="explanation-step">
-                    <h4>Langkah 2: Perluas Matriks</h4>
-                    <p>Untuk metode Sarrus, kita perlu menuliskan kembali dua kolom pertama matriks di sebelah kanan matriks asli. Ini akan membantu kita melihat pola diagonalnya.</p>
-                    <div class="matrix-output-display" id="extendedMatrixDisplayContainer">
-                        <div class="matrix-bracket left"></div>
-                        <div class="output-grid extended" id="extendedMatrixDisplay">${extendedMatrixHTMLString}</div>
-                        <div class="matrix-bracket right"></div>
-                    </div>
-                    <p>Perhatikan bahwa kolom ke-4 dan ke-5 adalah salinan dari kolom ke-1 dan ke-2.</p>
-                </div>
-            `;
-            prevStepButton.disabled = false;
-            nextStepButton.disabled = false;
-            removeSarrusArrows();
-        }
-    },
-    {
-        name: "Diagonal Positif",
-        display: () => {
-            const extendedMatrixData = getExtendedMatrixData(currentMatrix);
-            const extendedMatrixHTMLString = displayMatrixHTML(extendedMatrixData, '', true);
-            const products = calculateSarrusProducts(currentMatrix);
-
-            explanationArea.innerHTML = `
-                <div class="explanation-step">
-                    <h4>Langkah 3: Hitung Jumlah Perkalian Diagonal Positif (+)</h4>
-                    <p>Sekarang, kita hitung perkalian elemen-elemen sepanjang tiga diagonal dari kiri atas ke kanan bawah (diagonal positif), lalu menjumlahkannya:</p>
-                    <div class="matrix-output-display" id="extendedMatrixDisplayContainer">
-                        <div class="matrix-bracket left"></div>
-                        <div class="output-grid extended" id="extendedMatrixDisplay">${extendedMatrixHTMLString}</div>
-                        <div class="matrix-bracket right"></div>
-                    </div>
-                    <div class="sarrus-products">
-                        <div class="sarrus-product-item positive">${products.pos_terms[0].formula} = ${products.pos_values[0]}</div>
-                        <div class="sarrus-product-item positive">${products.pos_terms[1].formula} = ${products.pos_values[1]}</div>
-                        <div class="sarrus-product-item positive">${products.pos_terms[2].formula} = ${products.pos_values[2]}</div>
-                    </div>
-                    <div class="equation-display">
-                        Jumlah Positif = ${products.pos_values[0]} + ${products.pos_values[1]} + ${products.pos_values[2]} = <strong>${products.sumPositive}</strong>
-                    </div>
-                    <p>Angka-angka ini akan ditambah dalam perhitungan akhir determinan.</p>
-                </div>
-            `;
-            prevStepButton.disabled = false;
-            nextStepButton.disabled = false;
-        }
-    },
-    {
-        name: "Diagonal Negatif",
-        display: () => {
-            const extendedMatrixData = getExtendedMatrixData(currentMatrix);
-            const extendedMatrixHTMLString = displayMatrixHTML(extendedMatrixData, '', true);
-            const products = calculateSarrusProducts(currentMatrix);
-
-            explanationArea.innerHTML = `
-                <div class="explanation-step">
-                    <h4>Langkah 4: Hitung Jumlah Perkalian Diagonal Negatif (-)</h4>
-                    <p>Selanjutnya, kita hitung perkalian elemen-elemen sepanjang tiga diagonal dari kanan atas ke kiri bawah (diagonal negatif), lalu menjumlahkannya:</p>
-                    <div class="matrix-output-display" id="extendedMatrixDisplayContainer">
-                        <div class="matrix-bracket left"></div>
-                        <div class="output-grid extended" id="extendedMatrixDisplay">${extendedMatrixHTMLString}</div>
-                        <div class="matrix-bracket right"></div>
-                    </div>
-                    <div class="sarrus-products">
-                        <div class="sarrus-product-item negative">${products.neg_terms[0].formula} = ${products.neg_values[0]}</div>
-                        <div class="sarrus-product-item negative">${products.neg_terms[1].formula} = ${products.neg_values[1]}</div>
-                        <div class="sarrus-product-item negative">${products.neg_terms[2].formula} = ${products.neg_values[2]}</div>
-                    </div>
-                    <div class="equation-display">
-                        Jumlah Negatif = ${products.neg_values[0]} + ${products.neg_values[1]} + ${products.neg_values[2]} = <strong>${products.sumNegative}</strong>
-                    </div>
-                    <p>Angka-angka ini akan dikurangkan dalam perhitungan akhir determinan.</p>
-                </div>
-            `;
-            prevStepButton.disabled = false;
-            nextStepButton.disabled = false;
-        }
-    },
-    {
-        name: "Hasil Determinan",
-        display: () => {
-            const products = calculateSarrusProducts(currentMatrix);
-            determinantResult = products.sumPositive - products.sumNegative;
-
-            explanationArea.innerHTML = `
-                <div class="explanation-step">
-                    <h4>Langkah 5: Hitung Determinan Akhir</h4>
-                    <p>Determinan matriks diperoleh dengan mengurangkan total produk diagonal negatif dari total produk diagonal positif:</p>
-                    <div class="equation-display">
-                        Determinan = Jumlah Positif - Jumlah Negatif<br>
-                        Determinan = ${products.sumPositive} - (${products.sumNegative})<br>
-                        Determinan = <strong>${determinantResult}</strong>
-                    </div>
-                    <p>Jadi, determinan dari matriks yang Anda masukkan adalah:</p>
-                    <div class="final-result-display">
-                        Determinan = ${determinantResult}
-                    </div>
-                    <p>Sekarang kita akan beralih ke Matriks Minor.</p>
-                </div>
-            `;
-            prevStepButton.disabled = false;
-            nextStepButton.disabled = false;
-            removeSarrusArrows();
-        }
-    },
-    {
-        name: "Pengantar Minor",
-        display: () => {
-            explanationArea.innerHTML = `
-                <div class="explanation-step">
-                    <h4>Langkah 6: Memahami Matriks Minor</h4>
-                    <p><strong>Matriks Minor (M<sub>ij</sub>)</strong> dari suatu elemen (a<sub>ij</sub>) dalam matriks adalah determinan dari sub-matriks yang terbentuk dengan menghilangkan baris ke-i dan kolom ke-j dari matriks asli.</p>
-                    <p>Untuk setiap elemen di matriks 3x3, kita akan mendapatkan sub-matriks 2x2. Kita akan menghitung determinan dari masing-masing sub-matriks ini untuk mendapatkan nilai minornya.</p>
-                    <p>Klik 'Langkah Selanjutnya' untuk melihat perhitungan Minor untuk setiap elemen.</p>
-                </div>
-            `;
-            prevStepButton.disabled = false;
-            nextStepButton.disabled = false;
-        }
-    },
-    {
-        name: "Perhitungan Minor",
-        display: () => {
-            let minorExplanationHtml = `
-                <div class="explanation-step">
-                    <h4>Langkah 7: Hitung Semua Elemen Matriks Minor</h4>
-                    <p>Mari kita hitung satu per satu elemen minor dari matriks awal:</p>
-            `;
-            minorMatrixValues = [];
-
-            for (let r = 0; r < 3; r++) {
-                let row = [];
-                minorExplanationHtml += `<h3>Minor Baris ${r + 1}</h3>`;
-                for (let c = 0; c < 3; c++) {
-                    const sub = getSubmatrix(currentMatrix, r, c);
-                    const minorValue = det2x2(sub);
-                    row.push(minorValue);
-
-                    minorExplanationHtml += `
-                        <p>M<sub>${r + 1}${c + 1}</sub> (elemen di baris ${r + 1}, kolom ${c + 1}):</p>
-                        <div class="submatrix-display">
-                            <span>|</span>
-                            <div class="submatrix-grid">
-                                <div class="cell">${sub[0][0]}</div>
-                                <div class="cell">${sub[0][1]}</div>
-                                <div class="cell">${sub[1][0]}</div>
-                                <div class="cell">${sub[1][1]}</div>
-                            </div>
-                            <span>|</span>
-                        </div>
-                        <div class="equation-display">
-                            (${sub[0][0]} &times; ${sub[1][1]}) - (${sub[0][1]} &times; ${sub[1][0]}) = <strong>${minorValue}</strong>
-                        </div>
-                        <hr style="border-color: var(--border-color); margin: 15px auto; width: 50%;">
-                    `;
-                }
-                minorMatrixValues.push(row);
+            if (calculationStepsLog.length === 0) {
+                explanationArea.innerHTML = `<p>Tidak ada langkah perhitungan detail yang terekam. Silakan kembali ke Ringkasan Perhitungan.</p>`;
+                nextStepButton.disabled = true;
+                prevStepButton.disabled = false;
+                return;
             }
-            minorExplanationHtml += `
-                    <h4>Hasil Matriks Minor:</h4>
-                    <div class="matrix-output-display">
-                        <div class="matrix-bracket left"></div>
-                        <div class="output-grid" id="minorMatrixResult">${displayMatrixHTML(minorMatrixValues)}</div>
-                        <div class="matrix-bracket right"></div>
-                    </div>
-                </div>
-            `;
-            explanationArea.innerHTML = minorExplanationHtml;
-            prevStepButton.disabled = false;
-            nextStepButton.disabled = false;
-        }
-    },
-    {
-        name: "Pengantar Kofaktor",
-        display: () => {
-            explanationArea.innerHTML = `
-                <div class="explanation-step">
-                    <h4>Langkah 8: Memahami Matriks Kofaktor</h4>
-                    <p><strong>Matriks Kofaktor (C<sub>ij</sub>)</strong> terkait erat dengan matriks minor. Kofaktor dari suatu elemen (a<sub>ij</sub>) dihitung dengan rumus:</p>
-                    <div class="equation-display">
-                        C<sub>ij</sub> = (-1)<sup>i+j</sup> &times; M<sub>ij</sub>
-                    </div>
-                    <p>Di mana M<sub>ij</sub> adalah minor yang sesuai, dan <code>(-1)<sup>i+j</sup></code> menentukan tanda positif atau negatifnya berdasarkan posisi baris (i) dan kolom (j) elemen tersebut.</p>
-                    <p>Pola tanda untuk matriks 3x3 adalah:</p>
-                    <div class="cofactor-sign-matrix">
-                        <div class="matrix-bracket left"></div>
-                        <div class="sign-grid">
-                            <div class="sign-cell positive">+</div>
-                            <div class="sign-cell negative">-</div>
-                            <div class="sign-cell positive">+</div>
-                            <div class="sign-cell negative">-</div>
-                            <div class="sign-cell positive">+</div>
-                            <div class="sign-cell negative">-</div>
-                            <div class="sign-cell positive">+</div>
-                            <div class="sign-cell negative">-</div>
-                            <div class="sign-cell positive">+</div>
-                        </div>
-                        <div class="matrix-bracket right"></div>
-                    </div>
-                    <p>Klik 'Langkah Selanjutnya' untuk melihat perhitungan Kofaktor untuk setiap elemen.</p>
-                </div>
-            `;
-            prevStepButton.disabled = false;
-            nextStepButton.disabled = false;
-        }
-    },
-    {
-        name: "Perhitungan Kofaktor",
-        display: () => {
-            let cofactorExplanationHtml = `
-                <div class="explanation-step">
-                    <h4>Langkah 9: Hitung Semua Elemen Matriks Kofaktor</h4>
-                    <p>Kita akan mengalikan setiap elemen minor dengan tanda yang sesuai berdasarkan posisinya:</p>
-            `;
-            cofactorMatrixValues = [];
+            displayCurrentLogStep(); // Tampilkan langkah detail dari log
 
-            for (let r = 0; r < 3; r++) {
-                let row = [];
-                cofactorExplanationHtml += `<h3>Kofaktor Baris ${r + 1}</h3>`;
-                for (let c = 0; c < 3; c++) {
-                    const sign = ((r + c) % 2 === 0) ? 1 : -1;
-                    const minorValue = minorMatrixValues[r][c];
-                    const cofactorValue = sign * minorValue;
-                    row.push(cofactorValue);
-
-                    const signSymbol = (sign === 1) ? '+' : '-';
-                    const termSign = (sign === 1) ? '' : '-';
-
-                    cofactorExplanationHtml += `
-                        <p>C<sub>${r + 1}${c + 1}</sub> = <span style="font-weight: bold; color: ${sign === 1 ? 'var(--sarrus-positive)' : 'var(--sarrus-negative)'};">(${signSymbol}1)</span> &times; M<sub>${r + 1}${c + 1}</sub></p>
-                        <div class="equation-display">
-                            C<sub>${r + 1}${c + 1}</sub> = ${termSign}${Math.abs(minorValue)} = <strong>${cofactorValue}</strong>
-                        </div>
-                        <hr style="border-color: var(--border-color); margin: 15px auto; width: 50%;">
-                    `;
-                }
-                cofactorMatrixValues.push(row);
-            }
-            cofactorExplanationHtml += `
-                    <h4>Hasil Matriks Kofaktor:</h4>
-                    <div class="matrix-output-display">
-                        <div class="matrix-bracket left"></div>
-                        <div class="output-grid" id="cofactorMatrixResult">${displayMatrixHTML(cofactorMatrixValues)}</div>
-                        <div class="matrix-bracket right"></div>
-                    </div>
-                </div>
-            `;
-            explanationArea.innerHTML = cofactorExplanationHtml;
-            prevStepButton.disabled = false;
-            nextStepButton.disabled = false;
+            // Tombol prev/next untuk langkah detail akan diatur oleh displayCurrentLogStep
         }
     },
     {
@@ -311,32 +108,17 @@ const learningSteps = [
         display: () => {
             explanationArea.innerHTML = `
                 <div class="explanation-step">
-                    <h4>Langkah 10: Ringkasan Pembelajaran</h4>
-                    <p>Anda telah berhasil mempelajari cara menghitung:</p>
-                    <ul>
-                        <li><strong>Determinan Matriks 3x3</strong> menggunakan Metode Sarrus.</li>
-                        <li><strong>Matriks Minor</strong> untuk setiap elemen.</li>
-                        <li><strong>Matriks Kofaktor</strong> yang berasal dari matriks minor.</li>
-                    </ul>
-                    <p>Pemahaman tentang determinan, minor, dan kofaktor adalah dasar penting dalam aljabar linear dan memiliki banyak aplikasi dalam berbagai bidang ilmu.</p>
-                    <p>Determinan Matriks Anda adalah: <strong>${determinantResult}</strong></p>
-                    <h4>Matriks Minor Anda:</h4>
-                    <div class="matrix-output-display">
-                        <div class="matrix-bracket left"></div>
-                        <div class="output-grid" id="finalMinorMatrix">${displayMatrixHTML(minorMatrixValues)}</div>
-                        <div class="matrix-bracket right"></div>
-                    </div>
-                    <h4>Matriks Kofaktor Anda:</h4>
-                    <div class="matrix-output-display">
-                        <div class="matrix-bracket left"></div>
-                        <div class="output-grid" id="finalCofactorMatrix">${displayMatrixHTML(cofactorMatrixValues)}</div>
-                        <div class="matrix-bracket right"></div>
-                    </div>
-                    <p>Anda bisa mengubah nilai matriks di atas dan klik "Mulai Pembelajaran" lagi untuk mencoba soal baru, atau klik "Contoh Soal" untuk melihat matriks contoh.</p>
+                    <h4>Kesimpulan Pembelajaran</h4>
+                    <p>Anda telah berhasil mempelajari cara menghitung determinan matriks ordo ${matrixSize}x${matrixSize} menggunakan ${selectedMethod === 'sarrus' ? 'Metode Sarrus' : 'Ekspansi Kofaktor'}.</p>
+                    <p>Determinan Matriks yang Anda masukkan adalah: <strong>${determinantResult}</strong></p>
+                    <p>Anda bisa mengubah nilai matriks, ordo, atau metode di atas dan klik "Mulai Pembelajaran" lagi untuk mencoba soal baru, atau klik "Contoh Soal".</p>
+                    <p>Terima kasih telah menggunakan media pembelajaran ini!</p>
                 </div>
             `;
             prevStepButton.disabled = false;
-            nextStepButton.disabled = true;
+            nextStepButton.disabled = true; // Tidak bisa maju lagi
+            removeSarrusArrows();
+            removeHighlight();
         }
     }
 ];
@@ -348,48 +130,146 @@ function goToStep(stepIndex) {
         return;
     }
     currentStep = stepIndex;
-    learningSteps[currentStep].display();
+
+    // Untuk langkah perhitungan detail, kita pakai logika yang berbeda
+    if (currentStep === 2) { // 'Detail Perhitungan Langkah demi Langkah'
+        displayCurrentLogStep();
+    } else {
+        learningSteps[currentStep].display();
+    }
 
     setTimeout(() => {
-        prevStepButton.disabled = (currentStep === 0 || currentStep === 1);
-        nextStepButton.disabled = (currentStep === learningSteps.length - 1);
-
-        if (currentStep === 3) {
-            displaySarrusArrows(getExtendedMatrixData(currentMatrix), 'extendedMatrixDisplayContainer', 'positive');
-        } else if (currentStep === 4) {
-            displaySarrusArrows(getExtendedMatrixData(currentMatrix), 'extendedMatrixDisplayContainer', 'negative');
+        // Atur status tombol Previous/Next
+        if (currentStep === 2) { // Untuk langkah perhitungan detail, tombol dikendalikan oleh log
+            prevStepButton.disabled = (currentLogStep === 0);
+            nextStepButton.disabled = (currentLogStep === calculationStepsLog.length - 1);
         } else {
-            removeSarrusArrows();
+            prevStepButton.disabled = (currentStep === 0);
+            nextStepButton.disabled = (currentStep === learningSteps.length - 1);
         }
 
+        // Auto-scroll ke bagian penjelasan
         explanationSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }, 50);
 }
 
+// Mengatur tampilan langkah log perhitungan (untuk currentStep === 2)
+function displayCurrentLogStep() {
+    if (calculationStepsLog.length === 0) {
+        explanationArea.innerHTML = `<p>Tidak ada langkah perhitungan detail yang terekam. Silakan kembali ke Ringkasan Perhitungan.</p>`;
+        return;
+    }
+
+    const logEntry = calculationStepsLog[currentLogStep];
+    let contentHTML = `
+        <div class="explanation-step">
+            <h4>${logEntry.title}</h4>
+            <p>${logEntry.description}</p>
+            ${logEntry.matrixHtml ? `
+            <div class="matrix-output-display" id="logMatrixDisplayContainer">
+                <div class="matrix-bracket left"></div>
+                <div class="output-grid order-${logEntry.matrixOrder}" id="logMatrixDisplay">${logEntry.matrixHtml}</div>
+                <div class="matrix-bracket right"></div>
+            </div>` : ''}
+            ${logEntry.submatrixHtml ? `
+            <div class="submatrix-display">
+                <p>Sub-matriks ${logEntry.submatrixLabel}:</p>
+                <span>|</span>
+                <div class="submatrix-grid order-${logEntry.submatrixOrder}">${logEntry.submatrixHtml}</div>
+                <span>|</span>
+            </div>` : ''}
+            ${logEntry.sarrusProductsHtml ? `<div class="sarrus-products">${logEntry.sarrusProductsHtml}</div>` : ''}
+            ${logEntry.equationHtml ? `<div class="equation-display">${logEntry.equationHtml}</div>` : ''}
+        </div>
+    `;
+    explanationArea.innerHTML = contentHTML;
+
+    // Highlight sel yang sedang diekspansi (jika ada)
+    removeHighlight(); // Bersihkan highlight sebelumnya
+    if (logEntry.highlightCell) {
+        const targetMatrixContainer = document.getElementById('logMatrixDisplayContainer');
+        if (targetMatrixContainer) {
+            const row = logEntry.highlightCell.row;
+            const col = logEntry.highlightCell.col;
+            const cellToHighlight = targetMatrixContainer.querySelector(`.output-cell[data-row="${row}"][data-col="${col}"]`);
+            if (cellToHighlight) {
+                cellToHighlight.classList.add('highlighted-cell');
+            }
+        }
+    }
+
+    // Tampilkan panah Sarrus jika ini adalah langkah Sarrus
+    if (logEntry.sarrusDisplayData && logEntry.sarrusDisplayData.type) {
+        displaySarrusArrows(logEntry.sarrusDisplayData.extendedMatrix, 'logMatrixDisplayContainer', logEntry.sarrusDisplayData.type);
+    } else {
+        removeSarrusArrows();
+    }
+
+    prevStepButton.disabled = (currentLogStep === 0);
+    nextStepButton.disabled = (currentLogStep === calculationStepsLog.length - 1);
+}
+
+
 function nextStep() {
-    if (currentStep < learningSteps.length - 1) {
+    if (currentStep === 2) { // Jika sedang di langkah perhitungan detail
+        if (currentLogStep < calculationStepsLog.length - 1) {
+            currentLogStep++;
+            displayCurrentLogStep();
+        } else {
+            // Jika sudah di log terakhir, maju ke langkah utama berikutnya (Kesimpulan)
+            currentStep++;
+            goToStep(currentStep);
+        }
+    } else if (currentStep < learningSteps.length - 1) {
         currentStep++;
         goToStep(currentStep);
     }
 }
 
 function prevStep() {
-    if (currentStep > 1) {
+    if (currentStep === 2) { // Jika sedang di langkah perhitungan detail
+        if (currentLogStep > 0) {
+            currentLogStep--;
+            displayCurrentLogStep();
+        } else {
+            // Jika sudah di log pertama, mundur ke langkah utama sebelumnya (Ringkasan)
+            currentStep--;
+            goToStep(currentStep);
+        }
+    } else if (currentStep > 0) {
         currentStep--;
-        goToStep(currentStep);
-    } else if (currentStep === 1) {
-        currentStep = 0;
         goToStep(currentStep);
     }
 }
 
-// FUNGSI-FUNGSI BANTUAN PERHITUNGAN MATRIKS
+// --- FUNGSI-FUNGSI BANTUAN MATRIKS ---
+
+// Fungsi untuk membuat input matriks secara dinamis
+function generateMatrixInputs(order) {
+    matrixInputGrid.innerHTML = ''; // Clear previous inputs
+    matrixInputGrid.style.gridTemplateColumns = `repeat(${order}, 1fr)`; // Set CSS grid
+
+    for (let i = 0; i < order; i++) {
+        for (let j = 0; j < order; j++) {
+            const input = document.createElement('input');
+            input.type = 'number';
+            input.id = `a${i + 1}${j + 1}`;
+            input.value = ''; // Default empty
+            input.step = 'any';
+            matrixInputGrid.appendChild(input);
+        }
+    }
+}
+
+// Fungsi untuk membaca matriks dari input HTML
 function getMatrixFromInputs() {
     const matrix = [];
     let isValid = true;
-    for (let i = 0; i < 3; i++) {
+    const currentOrder = parseInt(matrixOrderSelect.value);
+
+    for (let i = 0; i < currentOrder; i++) {
         let row = [];
-        for (let j = 0; j < 3; j++) {
+        for (let j = 0; j < currentOrder; j++) {
             const inputId = `a${i + 1}${j + 1}`;
             const inputValue = document.getElementById(inputId).value;
             const numValue = parseFloat(inputValue);
@@ -406,88 +286,245 @@ function getMatrixFromInputs() {
     return { matrix, isValid };
 }
 
-function displayMatrixHTML(mat, elementId = '', isExtended = false) {
+// Fungsi untuk menampilkan matriks (NxN) sebagai string HTML
+function displayMatrixHTML(mat, order) {
     let html = '';
     for (let r = 0; r < mat.length; r++) {
         for (let c = 0; c < mat[r].length; c++) {
-            const copyClass = (isExtended && c >= 3) ? 'copy-col' : '';
-            // Perbaikan ada di sini: Hanya tambahkan kelas jika 'copyClass' tidak kosong
-            html += `<div class="output-cell${copyClass ? ' ' + copyClass : ''}" data-row="${r}" data-col="${c}">${mat[r][c]}</div>`;
+            html += `<div class="output-cell" data-row="${r}" data-col="${c}">${mat[r][c]}</div>`;
         }
     }
     return html;
 }
 
-function getExtendedMatrixData(mat) {
-    return [
-        [mat[0][0], mat[0][1], mat[0][2], mat[0][0], mat[0][1]],
-        [mat[1][0], mat[1][1], mat[1][2], mat[1][0], mat[1][1]],
-        [mat[2][0], mat[2][1], mat[2][2], mat[2][0], mat[2][1]]
-    ];
+// Fungsi untuk mendapatkan sub-matriks (untuk Minor)
+function getMinor(mat, rowToRemove, colToRemove) {
+    const minor = [];
+    for (let r = 0; r < mat.length; r++) {
+        if (r === rowToRemove) continue;
+        let newRow = [];
+        for (let c = 0; c < mat[r].length; c++) {
+            if (c === colToRemove) continue;
+            newRow.push(mat[r][c]);
+        }
+        minor.push(newRow);
+    }
+    return minor;
 }
 
-function calculateSarrusProducts(mat) {
-    const p1 = mat[0][0] * mat[1][1] * mat[2][2];
-    const p2 = mat[0][1] * mat[1][2] * mat[2][0];
-    const p3 = mat[0][2] * mat[1][0] * mat[2][1];
-    const sumPositive = p1 + p2 + p3;
-
-    const n1 = mat[0][2] * mat[1][1] * mat[2][0];
-    const n2 = mat[0][0] * mat[1][2] * mat[2][1];
-    const n3 = mat[0][1] * mat[1][0] * mat[2][2];
-    const sumNegative = n1 + n2 + n3;
-
-    return {
-        pos_values: [p1, p2, p3],
-        neg_values: [n1, n2, n3],
-        pos_terms: [
-            {r1:0,c1:0,r2:1,c2:1,r3:2,c3:2, formula:`${mat[0][0]} &times; ${mat[1][1]} &times; ${mat[2][2]}`},
-            {r1:0,c1:1,r2:1,c2:2,r3:2,c3:3, formula:`${mat[0][1]} &times; ${mat[1][2]} &times; ${mat[2][0]}`},
-            {r1:0,c1:2,r2:1,c2:3,r3:2,c3:4, formula:`${mat[0][2]} &times; ${mat[1][0]} &times; ${mat[2][1]}`},
-        ],
-        neg_terms: [
-            {r1:0,c1:2,r2:1,c2:1,r3:2,c3:0, formula:`${mat[0][2]} &times; ${mat[1][1]} &times; ${mat[2][0]}`},
-            {r1:0,c1:0,r2:1,c2:2,r3:2,c3:1, formula:`${mat[0][0]} &times; ${mat[1][2]} &times; ${mat[2][1]}`},
-            {r1:0,c1:1,r2:1,c2:0,r3:2,c3:2, formula:`${mat[0][1]} &times; ${mat[1][0]} &times; ${mat[2][2]}`},
-        ],
-        sumPositive: sumPositive,
-        sumNegative: sumNegative
-    };
-}
-
+// Fungsi untuk menghitung determinan matriks 2x2
 function det2x2(m) {
     return (m[0][0] * m[1][1]) - (m[0][1] * m[1][0]);
 }
 
-function getSubmatrix(mat, r, c) {
-    const sub = [];
-    for (let i = 0; i < 3; i++) {
-        if (i === r) continue;
-        let row = [];
-        for (let j = 0; j < 3; j++) {
-            if (j === c) continue;
-            row.push(mat[i][j]);
-        }
-        sub.push(row);
+// Fungsi untuk menghitung produk-produk Sarrus (khusus 3x3)
+function calculateSarrusProducts(mat) {
+    if (mat.length !== 3 || mat[0].length !== 3) {
+        return { determinant: NaN, sumPositive: NaN, sumNegative: NaN, extendedMatrix: [], productsHtml: '' };
     }
-    return sub;
+    const a = mat[0][0], b = mat[0][1], c = mat[0][2];
+    const d = mat[1][0], e = mat[1][1], f = mat[1][2];
+    const g = mat[2][0], h = mat[2][1], i = mat[2][2];
+
+    const p1 = a * e * i;
+    const p2 = b * f * g;
+    const p3 = c * d * h;
+    const sumPositive = p1 + p2 + p3;
+
+    const n1 = c * e * g;
+    const n2 = a * f * h;
+    const n3 = b * d * i;
+    const sumNegative = n1 + n2 + n3;
+
+    const extendedMatrix = [
+        [a, b, c, a, b],
+        [d, e, f, d, e],
+        [g, h, i, g, h]
+    ];
+
+    let productsHtml = `
+        <div class="sarrus-positive-products">
+            <p>Produk Positif:</p>
+            <div class="sarrus-product-item positive">${a} &times; ${e} &times; ${i} = ${p1}</div>
+            <div class="sarrus-product-item positive">${b} &times; ${f} &times; ${g} = ${p2}</div>
+            <div class="sarrus-product-item positive">${c} &times; ${d} &times; ${h} = ${p3}</div>
+        </div>
+        <div class="sarrus-negative-products">
+            <p>Produk Negatif:</p>
+            <div class="sarrus-product-item negative">${c} &times; ${e} &times; ${g} = ${n1}</div>
+            <div class="sarrus-product-item negative">${a} &times; ${f} &times; ${h} = ${n2}</div>
+            <div class="sarrus-product-item negative">${b} &times; ${d} &times; ${i} = ${n3}</div>
+        </div>
+    `;
+
+    return {
+        determinant: sumPositive - sumNegative,
+        sumPositive: sumPositive,
+        sumNegative: sumNegative,
+        extendedMatrix: extendedMatrix,
+        productsHtml: productsHtml
+    };
 }
 
-// FUNGSI VISUALISASI PANAH SARRUS
-function displaySarrusArrows(extendedMatrixData, containerId, type) {
+// FUNGSI UTAMA REKURSIF UNTUK MENGHITUNG DETERMINAN (EKSPANSI KOFAKTOR)
+function determinant(mat, logging = false, methodOverride = 'auto') {
+    const n = mat.length;
+    const currentMethod = methodOverride; // Method for this specific calculation call
+
+    if (n === 1) {
+        if (logging) calculationStepsLog.push({
+            title: `Perhitungan Determinan Matriks 1x1`,
+            description: `Determinan matriks 1x1 adalah nilai elemen itu sendiri.`,
+            matrix: mat,
+            matrixOrder: 1,
+            matrixHtml: displayMatrixHTML(mat, 1),
+            equationHtml: `det = <strong>${mat[0][0]}</strong>`
+        });
+        return mat[0][0];
+    }
+
+    if (n === 2) {
+        const detVal = det2x2(mat);
+        if (logging) calculationStepsLog.push({
+            title: `Perhitungan Determinan Matriks 2x2`,
+            description: `Determinan matriks 2x2 dihitung dengan (ad - bc).`,
+            matrix: mat,
+            matrixOrder: 2,
+            matrixHtml: displayMatrixHTML(mat, 2),
+            equationHtml: `(${mat[0][0]} &times; ${mat[1][1]}) - (${mat[0][1]} &times; ${mat[1][0]}) = <strong>${detVal}</strong>`
+        });
+        return detVal;
+    }
+
+    if (n === 3 && (currentMethod === 'sarrus' || currentMethod === 'auto')) {
+        const sarrusResult = calculateSarrusProducts(mat);
+        if (logging) {
+            // Log for Sarrus general concept
+            calculationStepsLog.push({
+                title: `Perhitungan Determinan Matriks 3x3 (Metode Sarrus)`,
+                description: `Untuk matriks 3x3, kita dapat menggunakan Metode Sarrus. Matriks diperluas dengan menyalin dua kolom pertama.`,
+                matrix: mat,
+                matrixOrder: 3,
+                matrixHtml: displayMatrixHTML(mat, 3),
+                sarrusDisplayData: { extendedMatrix: sarrusResult.extendedMatrix, type: 'all' }
+            });
+            // Log for Sarrus products summary
+            calculationStepsLog.push({
+                title: `Detail Perhitungan Sarrus`,
+                description: `Hasil produk diagonal positif dan negatif, serta totalnya adalah:`,
+                matrix: sarrusResult.extendedMatrix,
+                matrixOrder: 5, // Extended matrix has 5 columns
+                matrixHtml: displayMatrixHTML(sarrusResult.extendedMatrix, 5, true), // `true` for isExtended
+                sarrusProductsHtml: sarrusResult.productsHtml,
+                equationHtml: `
+                    Jumlah Positif = ${sarrusResult.sumPositive}<br>
+                    Jumlah Negatif = ${sarrusResult.sumNegative}<br>
+                    Determinan = ${sarrusResult.sumPositive} - (${sarrusResult.sumNegative})
+                `
+            });
+            // Log for Sarrus final result
+            calculationStepsLog.push({
+                title: `Hasil Akhir Determinan 3x3`,
+                description: `Determinan akhir untuk matriks 3x3 ini adalah:`,
+                matrix: mat,
+                matrixOrder: 3,
+                matrixHtml: displayMatrixHTML(mat, 3),
+                equationHtml: `Determinan = <strong>${sarrusResult.determinant}</strong>`
+            });
+        }
+        return sarrusResult.determinant;
+    }
+
+    let det = 0;
+    // Ekspansi kofaktor sepanjang baris pertama
+    for (let c = 0; c < n; c++) {
+        const minorMat = getMinor(mat, 0, c); // Menghilangkan baris 0 dan kolom c
+        const cofactorSign = Math.pow(-1, (0 + c)); // (-1)^(i+j)
+        const element = mat[0][c];
+
+        if (logging) {
+            calculationStepsLog.push({
+                title: `Ekspansi Kofaktor untuk Elemen a<sub>1,${c+1}</sub> (Ordo ${n}x${n})`,
+                description: `Kita akan menghitung kofaktor untuk elemen di baris 1, kolom ${c+1} (${element}). Ini melibatkan pembentukan sub-matriks minor ${n-1}x${n-1} dengan menghilangkan baris 1 dan kolom ${c+1} dari matriks asli.`,
+                matrix: mat,
+                matrixOrder: n,
+                matrixHtml: displayMatrixHTML(mat, n),
+                highlightCell: {row: 0, col: c}, // Highlight elemen yang sedang diekspansi
+                submatrix: minorMat,
+                submatrixOrder: n-1,
+                submatrixLabel: `M<sub>1,${c+1}</sub>`,
+                submatrixHtml: displayMatrixHTML(minorMat, n-1)
+            });
+            calculationStepsLog.push({
+                title: `Perhitungan Kofaktor C<sub>1,${c+1}</sub>`,
+                description: `Determinan dari sub-matriks minor ${n-1}x${n-1} tersebut kemudian dihitung. Kofaktor adalah determinan minor dikalikan dengan tanda kofaktor (${cofactorSign === 1 ? '+' : '-'}).`,
+                matrix: mat,
+                matrixOrder: n,
+                matrixHtml: displayMatrixHTML(mat, n),
+                highlightCell: {row: 0, col: c},
+                submatrix: minorMat,
+                submatrixOrder: n-1,
+                submatrixLabel: `M<sub>1,${c+1}</sub>`,
+                submatrixHtml: displayMatrixHTML(minorMat, n-1),
+                equationHtml: `
+                    C<sub>1,${c+1}</sub> = (${cofactorSign}) &times; det(M<sub>1,${c+1}</sub>)<br>
+                    Di mana M<sub>1,${c+1}</sub> = <div style="display:inline-flex; vertical-align:middle; gap:5px; font-size:0.8em; margin:0 5px; background-color:#f5f5f5; padding:5px; border-radius:5px;"><div class="matrix-bracket left"></div><div class="output-grid order-${n-1}">${displayMatrixHTML(minorMat, n-1)}</div><div class="matrix-bracket right"></div></div>
+                `
+            });
+        }
+
+        const minorDet = determinant(minorMat, logging, 'cofactor'); // Rekursi, selalu pakai cofactor untuk sub-matriks
+        const term = cofactorSign * element * minorDet;
+        
+        if (logging) {
+            calculationStepsLog.push({
+                title: `Total Term untuk Elemen a<sub>1,${c+1}</sub>`,
+                description: `Produk elemen ${element}, tanda kofaktor (${cofactorSign}), dan determinan minor (${minorDet}) adalah:`,
+                matrix: mat,
+                matrixOrder: n,
+                matrixHtml: displayMatrixHTML(mat, n),
+                highlightCell: {row: 0, col: c},
+                equationHtml: `(${element}) &times; (${cofactorSign}) &times; (${minorDet}) = <strong>${term}</strong>`
+            });
+        }
+        
+        det += term;
+    }
+
+    if (logging) {
+        calculationStepsLog.push({
+            title: `Penjumlahan Semua Term Kofaktor (Ordo ${n}x${n})`,
+            description: `Determinan akhir untuk matriks ordo ${n}x${n} ini adalah jumlah dari semua term kofaktor yang dihitung dari ekspansi baris pertama.`,
+            matrix: mat,
+            matrixOrder: n,
+            matrixHtml: displayMatrixHTML(mat, n),
+            equationHtml: `Determinan = <span style="font-size:1.1em; font-weight:bold;">${det}</span>`
+        });
+    }
+
+    return det;
+}
+
+// FUNGSI VISUALISASI PANAH SARRUS (HANYA UNTUK 3X3)
+function displaySarrusArrows(extendedMatrix, containerId, type) {
     removeSarrusArrows();
 
     const container = document.getElementById(containerId);
     if (!container) {
-        console.error('Container untuk panah tidak ditemukan:', containerId);
+        console.error('Container for Sarrus arrows not found:', containerId);
         return;
     }
 
     const gridElement = container.querySelector('.output-grid');
-    if (!gridElement) {
-        console.error('Output grid tidak ditemukan di dalam container.');
+    if (!gridElement || gridElement.classList.contains('order-5') || gridElement.classList.contains('order-4') || gridElement.classList.contains('order-2')) {
+        // Hanya tampilkan jika grid adalah 3x3 yang diperluas
+        // console.log('Sarrus arrows not displayed for non-3x3 extended matrix.');
         return;
     }
+
+    // Adjust grid-template-columns for extended Sarrus matrix (3x3 expanded to 3x5)
+    gridElement.style.gridTemplateColumns = `repeat(5, max-content)`;
+
     const cells = gridElement.querySelectorAll('.output-cell');
     const containerRect = container.getBoundingClientRect();
 
@@ -500,7 +537,6 @@ function displaySarrusArrows(extendedMatrixData, containerId, type) {
         );
 
         if (!startCell || !endCell) {
-            console.error('Sel tidak ditemukan untuk indeks:', startRow, startCol, 'dan', endRow, endCol);
             return;
         }
 
@@ -557,9 +593,54 @@ function removeSarrusArrows() {
     document.querySelectorAll('.sarrus-line').forEach(line => line.remove());
 }
 
-// EVENT LISTENERS
+function removeHighlight() {
+    document.querySelectorAll('.highlighted-cell').forEach(cell => {
+        cell.classList.remove('highlighted-cell');
+    });
+}
+
+// --- FUNGSI PENGATUR OPSI DAN INPUT MATRIKS ---
+function updateMethodOptions() {
+    const currentOrder = parseInt(matrixOrderSelect.value);
+    const sarrusOption = methodSelect.querySelector('option[value="sarrus"]');
+
+    if (currentOrder !== 3) {
+        sarrusOption.disabled = true;
+        if (methodSelect.value === 'sarrus') {
+            methodSelect.value = 'auto'; // Kembali ke otomatis jika Sarrus tidak valid
+        }
+    } else {
+        sarrusOption.disabled = false;
+    }
+    // Update global matrixSize for other functions
+    matrixSize = currentOrder;
+    generateMatrixInputs(matrixSize); // Regenerate inputs based on new size
+    resetExplanationArea(); // Clear explanation when order/method changes
+}
+
+function resetExplanationArea() {
+    explanationSection.style.display = 'none';
+    explanationArea.innerHTML = '<p>Pilih ordo dan metode, lalu klik "Mulai Pembelajaran".</p>';
+    currentStep = 0;
+    currentLogStep = 0;
+    calculationStepsLog = [];
+    prevStepButton.disabled = true;
+    nextStepButton.disabled = true;
+    removeSarrusArrows();
+    removeHighlight();
+}
+
+// --- EVENT LISTENERS ---
 document.addEventListener('DOMContentLoaded', () => {
-    goToStep(0);
+    // Initial setup based on default select values
+    matrixSize = parseInt(matrixOrderSelect.value);
+    generateMatrixInputs(matrixSize);
+    updateMethodOptions();
+    goToStep(0); // Display intro
+
+    // Event listeners for select changes
+    matrixOrderSelect.addEventListener('change', updateMethodOptions);
+    methodSelect.addEventListener('change', resetExplanationArea); // Reset when method changes
 
     startButton.addEventListener('click', () => {
         const { matrix, isValid } = getMatrixFromInputs();
@@ -568,32 +649,40 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
         currentMatrix = matrix;
+        selectedMethod = methodSelect.value; // Get selected method for this calculation
         explanationSection.style.display = 'block';
-        goToStep(1);
+        goToStep(1); // Mulai dari langkah Ringkasan
     });
 
     resetButton.addEventListener('click', () => {
-        matrixInputs.forEach(input => {
+        resetExplanationArea();
+        // Clear all input fields
+        document.querySelectorAll('#matrixInputGrid input').forEach(input => {
             input.value = '';
         });
-        explanationSection.style.display = 'none';
-        goToStep(0);
-        removeSarrusArrows();
     });
 
     exampleButton.addEventListener('click', () => {
-        document.getElementById('a11').value = 1;
-        document.getElementById('a12').value = 2;
-        document.getElementById('a13').value = 3;
-        document.getElementById('a21').value = 4;
-        document.getElementById('a22').value = 5;
-        document.getElementById('a23').value = 6;
-        document.getElementById('a31').value = 7;
-        document.getElementById('a32').value = 8;
-        document.getElementById('a33').value = 9;
+        const currentOrder = parseInt(matrixOrderSelect.value);
+        const defaultValuesMap = {
+            2: [[1, 2], [3, 4]],
+            3: [[1, 2, 3], [4, 5, 6], [7, 8, 9]],
+            4: [[1, 2, 3, 4], [5, 6, 7, 8], [9, 10, 11, 12], [13, 14, 15, 16]],
+            5: [[1, 2, 3, 4, 5], [6, 7, 8, 9, 10], [11, 12, 13, 14, 15], [16, 17, 18, 19, 20], [21, 22, 23, 24, 25]]
+        };
+        const defaultValues = defaultValuesMap[currentOrder];
+
+        if (defaultValues) {
+            for (let i = 0; i < currentOrder; i++) {
+                for (let j = 0; j < currentOrder; j++) {
+                    document.getElementById(`a${i + 1}${j + 1}`).value = defaultValues[i][j];
+                }
+            }
+        }
         
         const { matrix, isValid } = getMatrixFromInputs();
         currentMatrix = matrix;
+        selectedMethod = methodSelect.value; // Get selected method for this calculation
         explanationSection.style.display = 'block';
         goToStep(1);
     });

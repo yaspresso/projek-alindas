@@ -1,38 +1,49 @@
 <!DOCTYPE html>
 <html lang="id">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Media Pembelajaran Interaktif: Determinan Matriks 3x3 (Sarrus, Minor, Kofaktor)</title>
+    <title>Media Pembelajaran Interaktif: Determinan Matriks</title>
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="style.css"> </head>
+    <link rel="stylesheet" href="style.css">
+</head>
+
 <body>
     <div class="container">
-        <h1>Media Pembelajaran Interaktif: Determinan Matriks 3x3</h1>
-        <p>Selamat datang di media pembelajaran interaktif matriks! Di sini kamu bisa memahami cara menghitung determinan matriks ordo 3x3 menggunakan Metode Sarrus, Matriks Minor, dan Matriks Kofaktor, langkah demi langkah.</p>
+        <h1>Media Pembelajaran Interaktif: Determinan Matriks</h1>
+        <p>Selamat datang di media pembelajaran interaktif matriks! Pilih ordo matriks dan metode perhitungan yang ingin Anda pelajari, lalu ikuti langkah-langkah detailnya.</p>
 
         <div class="section-box">
-            <h2>1. Masukkan Matriks</h2>
-            <p>Silakan masukkan angka-angka (bilangan bulat atau desimal) ke dalam matriks 3x3 di bawah ini:</p>
+            <h2>1. Pilih Ordo & Masukkan Matriks</h2>
+            <div class="options-group">
+                <label for="matrixOrderSelect">Pilih Ordo Matriks:</label>
+                <select id="matrixOrderSelect">
+                    <option value="2">2x2</option>
+                    <option value="3" selected>3x3</option> <option value="4">4x4</option>
+                    <option value="5">5x5</option>
+                </select>
+
+                <label for="methodSelect" style="margin-left: 20px;">Pilih Metode:</label>
+                <select id="methodSelect">
+                    <option value="auto">Otomatis (Sarrus untuk 3x3, Kofaktor untuk >3x3)</option>
+                    <option value="sarrus">Metode Sarrus (Khusus 3x3)</option>
+                    <option value="cofactor">Ekspansi Kofaktor</option>
+                </select>
+            </div>
+
+            <p style="margin-top: 20px;">Silakan masukkan angka-angka (bilangan bulat atau desimal) ke dalam matriks di bawah ini:</p>
+
             <div class="matrix-input-area">
                 <div class="matrix-display">
                     <div class="matrix-bracket left"></div>
                     <div class="matrix-grid" id="matrixInputGrid">
-                        <input type="number" id="a11" value="2" step="any">
-                        <input type="number" id="a12" value="-1" step="any">
-                        <input type="number" id="a13" value="3" step="any">
-                        <input type="number" id="a21" value="4" step="any">
-                        <input type="number" id="a22" value="-2" step="any">
-                        <input type="number" id="a23" value="-4" step="any">
-                        <input type="number" id="a31" value="1" step="any">
-                        <input type="number" id="a32" value="5" step="any">
-                        <input type="number" id="a33" value="-3" step="any">
-                    </div>
+                        </div>
                     <div class="matrix-bracket right"></div>
                 </div>
                 <div class="button-group">
                     <button id="startButton">Mulai Pembelajaran</button>
-                    <button id="resetButton">Reset Matriks</button>
+                    <button id="resetButton">Reset & Hapus Matriks</button>
                     <button id="exampleButton">Contoh Soal</button>
                 </div>
             </div>
@@ -42,7 +53,7 @@
             <h2>2. Langkah-langkah Pembelajaran</h2>
             <p>Ikuti setiap langkah di bawah ini untuk memahami perhitungan matriks:</p>
             <div id="explanationArea">
-                <p>Klik "Mulai Pembelajaran" untuk melihat langkah pertama.</p>
+                <p>Pilih ordo dan metode, lalu klik "Mulai Pembelajaran".</p>
             </div>
             <div class="action-buttons">
                 <button id="prevStepButton" disabled>Langkah Sebelumnya</button>
@@ -51,9 +62,11 @@
         </div>
 
         <footer>
-            <p>&copy; 2025 Media Pembelajaran Matriks 3x3. Dibuat dengan ❤️ untuk Adek.</p>
+            <p>&copy; 2025 Media Pembelajaran Matriks. Dibuat dengan ❤️ untuk Adek.</p>
         </footer>
     </div>
 
-    <script src="script.js"></script> </body>
+    <script src="script.js"></script>
+</body>
+
 </html>
