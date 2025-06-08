@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Media Pembelajaran Interaktif: Determinan Matriks 3x3 (Sarrus, Minor, Kofaktor)</title>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css"> </head>
+<body>
+    <div class="container">
+        <h1>Media Pembelajaran Interaktif: Determinan Matriks 3x3</h1>
+        <p>Selamat datang di media pembelajaran interaktif matriks! Di sini kamu bisa memahami cara menghitung determinan matriks ordo 3x3 menggunakan Metode Sarrus, Matriks Minor, dan Matriks Kofaktor, langkah demi langkah.</p>
+
+        <div class="section-box">
+            <h2>1. Masukkan Matriks</h2>
+            <p>Silakan masukkan angka-angka (bilangan bulat atau desimal) ke dalam matriks 3x3 di bawah ini:</p>
+            <div class="matrix-input-area">
+                <div class="matrix-display">
+                    <div class="matrix-bracket left"></div>
+                    <div class="matrix-grid" id="matrixInputGrid">
+                        <input type="number" id="a11" value="2" step="any">
+                        <input type="number" id="a12" value="-1" step="any">
+                        <input type="number" id="a13" value="3" step="any">
+                        <input type="number" id="a21" value="4" step="any">
+                        <input type="number" id="a22" value="-2" step="any">
+                        <input type="number" id="a23" value="-4" step="any">
+                        <input type="number" id="a31" value="1" step="any">
+                        <input type="number" id="a32" value="5" step="any">
+                        <input type="number" id="a33" value="-3" step="any">
+                    </div>
+                    <div class="matrix-bracket right"></div>
+                </div>
+                <div class="button-group">
+                    <button id="startButton">Mulai Pembelajaran</button>
+                    <button id="resetButton">Reset Matriks</button>
+                    <button id="exampleButton">Contoh Soal</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="section-box" id="explanationSection" style="display: none;">
+            <h2>2. Langkah-langkah Pembelajaran</h2>
+            <p>Ikuti setiap langkah di bawah ini untuk memahami perhitungan matriks:</p>
+            <div id="explanationArea">
+                <p>Klik "Mulai Pembelajaran" untuk melihat langkah pertama.</p>
+            </div>
+            <div class="action-buttons">
+                <button id="prevStepButton" disabled>Langkah Sebelumnya</button>
+                <button id="nextStepButton" disabled>Langkah Selanjutnya</button>
+            </div>
+        </div>
+
+        <footer>
+            <p>&copy; 2025 Media Pembelajaran Matriks 3x3. Dibuat dengan ❤️ untuk Adek.</p>
+        </footer>
+    </div>
+
+    <script src="script.js"></script> </body>
+</html>
