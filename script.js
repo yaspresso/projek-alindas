@@ -161,6 +161,11 @@ function displayCurrentLogStep() {
     }
 
     const logEntry = calculationStepsLog[currentLogStep];
+    
+    // Perbaikan: Pastikan output-grid mendapatkan kelas order-N yang benar
+    const matrixGridClass = `output-grid order-${logEntry.matrixOrder}`;
+    const submatrixGridClass = `submatrix-grid order-${logEntry.submatrixOrder}`;
+
     let contentHTML = `
         <div class="explanation-step">
             <h4>${logEntry.title}</h4>
@@ -168,14 +173,14 @@ function displayCurrentLogStep() {
             ${logEntry.matrixHtml ? `
             <div class="matrix-output-display" id="logMatrixDisplayContainer">
                 <div class="matrix-bracket left"></div>
-                <div class="output-grid order-${logEntry.matrixOrder}" id="logMatrixDisplay">${logEntry.matrixHtml}</div>
+                <div class="${matrixGridClass} ${logEntry.isExtendedForSarrus ? 'extended-sarrus' : ''}" id="logMatrixDisplay">${logEntry.matrixHtml}</div>
                 <div class="matrix-bracket right"></div>
             </div>` : ''}
             ${logEntry.submatrixHtml ? `
             <div class="submatrix-display">
                 <p>Sub-matriks ${logEntry.submatrixLabel}:</p>
                 <span>|</span>
-                <div class="submatrix-grid order-${logEntry.submatrixOrder}">${logEntry.submatrixHtml}</div>
+                <div class="${submatrixGridClass}">${logEntry.submatrixHtml}</div>
                 <span>|</span>
             </div>` : ''}
             ${logEntry.sarrusProductsHtml ? `<div class="sarrus-products">${logEntry.sarrusProductsHtml}</div>` : ''}
@@ -198,8 +203,9 @@ function displayCurrentLogStep() {
         }
     }
 
-    // Tampilkan panah Sarrus jika ini adalah langkah Sarrus
-    if (logEntry.sarrusDisplayData && logEntry.sarrusDisplayData.type) {
+    // Tampilkan panah Sarrus jika ini adalah langkah Sarrus (logEntry.isExtendedForSarrus === true)
+    // dan pastikan methodnya sarrus atau auto
+    if (logEntry.sarrusDisplayData && logEntry.sarrusDisplayData.extendedMatrix && logEntry.sarrusDisplayData.type && (selectedMethod === 'sarrus' || selectedMethod === 'auto')) {
         displaySarrusArrows(logEntry.sarrusDisplayData.extendedMatrix, 'logMatrixDisplayContainer', logEntry.sarrusDisplayData.type);
     } else {
         removeSarrusArrows();
@@ -287,11 +293,17 @@ function getMatrixFromInputs() {
 }
 
 // Fungsi untuk menampilkan matriks (NxN) sebagai string HTML
-function displayMatrixHTML(mat, order) {
+// isExtendedForSarrus: true jika ini adalah matriks 3x5 Sarrus yang diperluas
+function displayMatrixHTML(mat, order, isExtendedForSarrus = false) {
     let html = '';
+    // if (isExtendedForSarrus) { // Ini tidak perlu di sini, karena sudah diatur di displayCurrentLogStep
+    //     order = 5; // Untuk Sarrus extended, ordonya 5 kolom
+    // }
+    
     for (let r = 0; r < mat.length; r++) {
         for (let c = 0; c < mat[r].length; c++) {
-            html += `<div class="output-cell" data-row="${r}" data-col="${c}">${mat[r][c]}</div>`;
+            const copyClass = (isExtendedForSarrus && (c === 3 || c === 4)) ? 'copy-col' : '';
+            html += `<div class="output-cell${copyClass ? ' ' + copyClass : ''}" data-row="${r}" data-col="${c}">${mat[r][c]}</div>`;
         }
     }
     return html;
@@ -366,6 +378,7 @@ function calculateSarrusProducts(mat) {
     };
 }
 
+
 // FUNGSI UTAMA REKURSIF UNTUK MENGHITUNG DETERMINAN (EKSPANSI KOFAKTOR)
 function determinant(mat, logging = false, methodOverride = 'auto') {
     const n = mat.length;
@@ -399,13 +412,21 @@ function determinant(mat, logging = false, methodOverride = 'auto') {
     if (n === 3 && (currentMethod === 'sarrus' || currentMethod === 'auto')) {
         const sarrusResult = calculateSarrusProducts(mat);
         if (logging) {
-            // Log for Sarrus general concept
+            // Log for Sarrus general concept (showing original 3x3)
             calculationStepsLog.push({
                 title: `Perhitungan Determinan Matriks 3x3 (Metode Sarrus)`,
-                description: `Untuk matriks 3x3, kita dapat menggunakan Metode Sarrus. Matriks diperluas dengan menyalin dua kolom pertama.`,
+                description: `Untuk matriks 3x3, kita dapat menggunakan Metode Sarrus. Matriks asli adalah:`,
                 matrix: mat,
                 matrixOrder: 3,
-                matrixHtml: displayMatrixHTML(mat, 3),
+                matrixHtml: displayMatrixHTML(mat, 3)
+            });
+            // Log for Sarrus extended matrix
+            calculationStepsLog.push({
+                title: `Perluasan Matriks 3x3 untuk Sarrus`,
+                description: `Matriks diperluas dengan menyalin dua kolom pertama di sebelah kanan.`,
+                matrix: sarrusResult.extendedMatrix,
+                matrixOrder: 5, // Extended matrix has 5 columns
+                matrixHtml: displayMatrixHTML(sarrusResult.extendedMatrix, 5, true), // true for isExtendedForSarrus
                 sarrusDisplayData: { extendedMatrix: sarrusResult.extendedMatrix, type: 'all' }
             });
             // Log for Sarrus products summary
@@ -414,7 +435,7 @@ function determinant(mat, logging = false, methodOverride = 'auto') {
                 description: `Hasil produk diagonal positif dan negatif, serta totalnya adalah:`,
                 matrix: sarrusResult.extendedMatrix,
                 matrixOrder: 5, // Extended matrix has 5 columns
-                matrixHtml: displayMatrixHTML(sarrusResult.extendedMatrix, 5, true), // `true` for isExtended
+                matrixHtml: displayMatrixHTML(sarrusResult.extendedMatrix, 5, true), // true for isExtendedForSarrus
                 sarrusProductsHtml: sarrusResult.productsHtml,
                 equationHtml: `
                     Jumlah Positif = ${sarrusResult.sumPositive}<br>
@@ -516,14 +537,14 @@ function displaySarrusArrows(extendedMatrix, containerId, type) {
     }
 
     const gridElement = container.querySelector('.output-grid');
-    if (!gridElement || gridElement.classList.contains('order-5') || gridElement.classList.contains('order-4') || gridElement.classList.contains('order-2')) {
-        // Hanya tampilkan jika grid adalah 3x3 yang diperluas
-        // console.log('Sarrus arrows not displayed for non-3x3 extended matrix.');
+    if (!gridElement) {
+        console.error('Output grid not found within container for Sarrus arrows.');
         return;
     }
 
-    // Adjust grid-template-columns for extended Sarrus matrix (3x3 expanded to 3x5)
-    gridElement.style.gridTemplateColumns = `repeat(5, max-content)`;
+    // Perbaikan: Setel grid-template-columns berdasarkan jumlah kolom dari extendedMatrix
+    gridElement.style.gridTemplateColumns = `repeat(${extendedMatrix[0].length}, max-content)`;
+
 
     const cells = gridElement.querySelectorAll('.output-cell');
     const containerRect = container.getBoundingClientRect();
@@ -569,6 +590,8 @@ function displaySarrusArrows(extendedMatrix, containerId, type) {
         container.appendChild(line);
     }
 
+    // Data indeks sel untuk panah positif dan negatif (berdasarkan matriks 3x5)
+    // Ini adalah indeks kolom pada extended matrix (3x5)
     const positivePaths = [
         { start: {r:0,c:0}, end: {r:2,c:2} },
         { start: {r:0,c:1}, end: {r:2,c:3} },
@@ -657,9 +680,11 @@ document.addEventListener('DOMContentLoaded', () => {
     resetButton.addEventListener('click', () => {
         resetExplanationArea();
         // Clear all input fields
-        document.querySelectorAll('#matrixInputGrid input').forEach(input => {
-            input.value = '';
-        });
+        for (let i = 0; i < matrixSize; i++) {
+            for (let j = 0; j < matrixSize; j++) {
+                document.getElementById(`a${i + 1}${j + 1}`).value = '';
+            }
+        }
     });
 
     exampleButton.addEventListener('click', () => {
